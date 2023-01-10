@@ -101,13 +101,22 @@ sort_data(data_t i, data_t j)
 }
 
 /*****************************************************************************/
+
+/** spill pointer **/
+std::map<std::string, int> _next_spill;
   
-void
+bool
 populate_framed_data(framed_data_t &framed_data, std::string dirname, std::vector<std::string> filenames = all_filenames, int frame_size = 1024)
 {
-
+  /** start clean **/
+  bool has_data = false;
+  framed_data.clear();
+  
   /** loop over input file list **/
   for (const auto filename : filenames) {
+
+    /** reset spill pointer **/
+    if (!_next_spill.count(filename)) _next_spill[filename] = 0;
     
     const auto pathname = dirname + "/" + filename;
     
@@ -133,11 +142,12 @@ populate_framed_data(framed_data_t &framed_data, std::string dirname, std::vecto
 
     /** loop over events in tree **/
     int spill = 0;
-    for (int iev = 0; iev < nev; ++iev) {
+    for (int iev = _next_spill[filename]; iev < nev; ++iev) {
       tin->GetEntry(iev);
 
       /** start of spill **/
       if (data.type == kStartSpill) {
+        has_data = true;
         continue;
       }
 
@@ -165,6 +175,8 @@ populate_framed_data(framed_data_t &framed_data, std::string dirname, std::vecto
           }
         }
         spill++;
+        _next_spill[filename] = iev + 1;
+        break;
       }
       
     } /** end of loop over events **/
@@ -173,7 +185,7 @@ populate_framed_data(framed_data_t &framed_data, std::string dirname, std::vecto
     
   } /** end of loop over input files **/
 
-  
+  return has_data;
 }
   
 /*****************************************************************************/

@@ -15,19 +15,6 @@ analysis_example(std::string dirname, std::vector<std::string> filenames = au::a
 {
 
   /** 
-   ** POPULATE FRAMED DATA
-   **/
-  
-  au::framed_data_t framed_data;
-  au::populate_framed_data(framed_data, dirname, filenames, frame_size);  
-  
-  /** 
-   ** POST-PROCESSING ANALYSIS 
-   **/
-      
-  std::cout << " --- post processing " << std::endl;
-
-  /** 
    ** HISTOGRAMS
    **/
       
@@ -39,6 +26,20 @@ analysis_example(std::string dirname, std::vector<std::string> filenames = au::a
     hDelta[ichip] = new TH1F(Form("hDelta_%d", ichip), "hit - reference time (ns)", 2 * frame_size, -frame_size * au::coarse_to_ns, frame_size * au::coarse_to_ns);
   }
   
+  /** 
+   ** POPULATE FRAMED DATA
+   **/
+  
+  au::framed_data_t framed_data;
+
+  while (au::populate_framed_data(framed_data, dirname, filenames, frame_size)) {
+  
+  /** 
+   ** POST-PROCESSING ANALYSIS 
+   **/
+      
+  std::cout << " --- post processing " << std::endl;
+
   /** 
    ** LOOP OVER DATA
    **/
@@ -127,6 +128,8 @@ analysis_example(std::string dirname, std::vector<std::string> filenames = au::a
     
   } /** end of loop over spills **/
 
+  }
+  
   /** 
    ** WRITE OUTPUT TO FILE
    **/
