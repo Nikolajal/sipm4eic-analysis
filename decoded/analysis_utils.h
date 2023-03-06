@@ -60,7 +60,7 @@ const Int_t     kFineRange  = 512;
 const TString   intput_rawdata_directory                        = TString(get_environment_variable("ALCOR_DATA_DIR"))+TString("/");
 const TString   intput_rawdata_decoded_file_dir                 = intput_rawdata_directory + TString("./%s/decoded/");
 const TString   intput_rawdata_decoded_file                     = intput_rawdata_decoded_file_dir + TString("./alcdaq.fifo_%i.root");
-const TString   output_preprocess_directory                     = TString(get_environment_variable("ALCOR_WORK_DIR"))+TString("PreProcessedData/");
+const TString   output_preprocess_directory                     = TString(get_environment_variable("ALCOR_WORK_DIR"))+TString("/")+TString("PreProcessedData/");
 //! --- Convertion
 //! ---    --- Coarse
 const double coarse_to_s  = 3.1250000e-09;

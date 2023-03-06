@@ -29,7 +29,7 @@ const TString   output_preprocess_fine_analysis_file_offset_raw     = output_pre
 const TString   output_preprocess_fine_analysis_file_offset_rslt    = output_preprocess_fine_analysis_directory         + TString("/%s/FineTuneOffsetResults.root");
 const TString   output_preprocess_fine_analysis_file_check          = output_preprocess_fine_analysis_directory         + TString("/%s/FineTuneResultsCheck.root");
 const TString   output_preprocess_fine_analysis_graphics_dir        = output_preprocess_fine_analysis_directory         + TString("/%s/FitCheck/");
-TF1*                fine_analysis_fit_function                          = new TF1("fine_analysis_fit_function", "[0]*(1./(exp((x-[1])/[2])+1))*(1./(exp(([3]-x)/[4])+1))", 20., 150.);
+TF1*            fine_analysis_fit_function                          = new TF1("fine_analysis_fit_function", "[0]*(1./(exp((x-[1])/[2])+1))*(1./(exp(([3]-x)/[4])+1))", 20., 150.);
 //!
 //! Functions                                       ---------------------------------------------------------------------------------------------------------
 //! --- Declaration
