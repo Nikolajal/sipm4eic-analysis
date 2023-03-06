@@ -1,5 +1,22 @@
 #pragma once
 //!
+string
+get_environment_variable
+( string search_key ) {
+    extern char **environ;
+    int iTer = 0;
+    string result = "./";
+    while(environ[iTer]) {
+        string current_string = environ[iTer++];
+        auto key_position   = current_string.find(search_key);
+        auto key_length     = search_key.size();
+        if ( key_position < current_string.size() && key_position == 0 && current_string.substr(key_length,1) == "=" ) {
+            result = current_string.substr(key_length+key_position+1);
+        }
+    }
+    return result;
+}
+//!
 namespace analysis_utils {
 //!  Data Structures
 //!  --- ALCOR output structure
@@ -40,10 +57,10 @@ const Int_t     kGlobalIndexTiming_End = kGlobalIndexRange;
 std::map<std::string, int> _next_spill;
 //! --- Finetune analysis
 const Int_t     kFineRange  = 512;
-const TString   intput_rawdata_directory                        = "/Users/nrubini/Analysis/ePIC/sipm4eic-analysis/Data/";
+const TString   intput_rawdata_directory                        = TString(get_environment_variable("ALCOR_DATA_DIR"))+TString("/");
 const TString   intput_rawdata_decoded_file_dir                 = intput_rawdata_directory + TString("./%s/decoded/");
 const TString   intput_rawdata_decoded_file                     = intput_rawdata_decoded_file_dir + TString("./alcdaq.fifo_%i.root");
-const TString   output_preprocess_directory                     = "/Users/nrubini/Analysis/ePIC/sipm4eic-analysis/PreProcessedData/";
+const TString   output_preprocess_directory                     = TString(get_environment_variable("ALCOR_WORK_DIR"))+TString("PreProcessedData/");
 //! --- Convertion
 //! ---    --- Coarse
 const double coarse_to_s  = 3.1250000e-09;
