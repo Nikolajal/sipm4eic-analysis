@@ -449,7 +449,7 @@ calculate_calibrated_phase              //! Base calibration function implementa
 ( int kFineParameter, double kCalibrationMin, double kCalibrationMax, double kCalibrationOffset ) {
     //! Checking the parameter given is within calibration range
     if ( kFineParameter < kCalibrationMin || kFineParameter > kCalibrationMax ) {
-        return -10;
+        return -100;
     }
     //! Calculate the fine tune calibration from MAX and MIN values
     double kHalfCut         = 0.5 * ( kCalibrationMin + kCalibrationMax);
@@ -458,7 +458,7 @@ calculate_calibrated_phase              //! Base calibration function implementa
     if ( kFineParameter >= kHalfCut ) kCurrentPhase -= 1;
     //!
     //! TODO: This is a TEMPORARY FIX to avoid overlap regions
-    if ( fabs( kCurrentPhase ) > 0.45 ) return -10;
+    if ( fabs( kCurrentPhase ) > 0.45 ) return -101;
     //!
     //! Correct by offset calibration
     kCurrentPhase          += kCalibrationOffset;
