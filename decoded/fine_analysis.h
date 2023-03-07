@@ -19,6 +19,7 @@ std::map<TString,TH2F*>                             kFineTuneRawHistograms;     
 //!
 //! Variables                                        ---------------------------------------------------------------------------------------------------------
 //! --- General
+bool kIgnoreFix = false;
 const int       kMaximumOffsetCalibIteration                        = 4;
 const float     kEspilonOffsets                                     = 0.001; // 3.125 ps
 const float     kEspilonOffMean                                     = 0.001; // 3.125 ps
@@ -308,7 +309,8 @@ raw_delta_fine_tune_offset
     }
 }
 //!
-template< typename TH2_Type = TH2F >
+template<   typename TH2_Type = TH2F,
+            typename TH3_Type = TH3F >
 TH2_Type*
 run_fine_tune_offset_analysis
  ( TString kRunTag, TString kOutputFileName, TString kOutputGraphics, bool kRecalculate ) {
@@ -323,7 +325,11 @@ run_fine_tune_offset_analysis
     //! Run in Batch mode
     gROOT->SetBatch(true);
     //! histogram with delta time distribution
-    TH2_Type* hFine_Offset_All = new TH2_Type("hFine_Offset_All", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50);
+    TH2_Type* hFine_Offset_All = new TH2_Type("hFine_Offset_All", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50 );
+    TH3_Type* hFine_Check_Tune_Phas = new TH3_Type("hFine_Check_Tune", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50, 400, -2, +2 );
+    TH3_Type* hFine_Check_Tune_Fine = new TH3_Type("hFine_Check_Raw_", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50, kFineRange, 0, kFineRange );
+    TH3_Type* hFine_Check_TRaw_Phas = new TH3_Type("hFine_Check_Tune", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50, 400, -2, +2 );
+    TH3_Type* hFine_Check_TRaw_Fine = new TH3_Type("hFine_Check_Raw_", ";index;#Delta t", kGlobalIndexRange, 0, kGlobalIndexRange, 1000, -50, 50, kFineRange, 0, kFineRange );
     //! Blank calibration
     system(Form("mkdir -p %s/%s",output_preprocess_fine_analysis_directory.Data(),kRunTag.Data()));
     kFileOut = new TFile( Form (output_preprocess_fine_analysis_file_offset_rslt,kRunTag.Data()), "RECREATE" );
@@ -332,6 +338,7 @@ run_fine_tune_offset_analysis
     kFileOut->Close();
     //! Load data & loop on found infos
     for ( int iTer = 0; iTer < kMaximumOffsetCalibIteration; iTer++ ) {
+        break;
         auto hFine_Offset_All_Memory = (TH2F*)hFine_Offset_All->Clone();
         hFine_Offset_All->Reset();
         for ( Int_t iIndex = kGlobalIndexTiming_Start; iIndex < kGlobalIndexTiming_End; iIndex++ ) {
@@ -356,18 +363,27 @@ run_fine_tune_offset_analysis
         }
         set_fine_tune_raw_histogram(kRunTag,kFine_All_Tune_Params);
     }
+    check_fine_tune_effect( kRunTag, hFine_Check_Tune_Phas, hFine_Check_Tune_Fine, hFine_Check_TRaw_Phas, hFine_Check_TRaw_Fine );
     //!  Save custom output
     if ( kOutputFileName.Length() != 0 ) {
         // system(Form("mkdir -p %s", kOutputFileName.Data())); //! TODO: Create folder (?)
         kFileOut = new TFile( kOutputFileName, "RECREATE" );
         kFine_All_Tune_Params->Write();
         hFine_Offset_All->Write();
+        hFine_Check_Tune_Phas->Write();
+        hFine_Check_Tune_Fine->Write();
+        hFine_Check_TRaw_Phas->Write();
+        hFine_Check_TRaw_Fine->Write();
         kFileOut->Close();
     } else {
         system(Form("mkdir -p %s/%s",output_preprocess_fine_analysis_directory.Data(),kRunTag.Data()));
         kFileOut = new TFile( Form (output_preprocess_fine_analysis_file_offset_rslt,kRunTag.Data()), "RECREATE" );
         kFine_All_Tune_Params->Write();
         hFine_Offset_All->Write();
+        hFine_Check_Tune_Phas->Write();
+        hFine_Check_Tune_Fine->Write();
+        hFine_Check_TRaw_Phas->Write();
+        hFine_Check_TRaw_Fine->Write();
         kFileOut->Close();
     }
     //! Run in Batch mode
@@ -458,7 +474,7 @@ calculate_calibrated_phase              //! Base calibration function implementa
     if ( kFineParameter >= kHalfCut ) kCurrentPhase -= 1;
     //!
     //! TODO: This is a TEMPORARY FIX to avoid overlap regions
-    if ( fabs( kCurrentPhase ) > 0.45 ) return -101;
+    if ( !kIgnoreFix && fabs( kCurrentPhase ) > 0.45 ) return -101;
     //!
     //! Correct by offset calibration
     kCurrentPhase          += kCalibrationOffset;
@@ -491,13 +507,113 @@ get_fit_bump                            //! @Chiara Fraticelli
 //!
 //!
 //! NEW THINGS TO INTEGRATE ---------
-template< typename TH2_Type = TH2F >
-TH2_Type*
-check_normalisation_fine_tune
- ( TString kRunTag, TString kOutputFileName="", bool kRecalculate=false ) {
-    std::vector<TString> kInputFileNames;
-    for ( Int_t iFile = 0; iFile < 24; iFile++ ) { kInputFileNames.push_back(Form(intput_rawdata_decoded_file,kRunTag.Data(),iFile)); }
-    return check_normalisation_fine_tune<TH2_Type>( kInputFileNames, kRunTag, kOutputFileName, kRecalculate );
+template< typename TH3_Type = TH3F >
+void
+check_fine_tune_effect
+( TString kRunTag, TH3_Type& hFine_Check_Tune_Phas, TH3_Type& hFine_Check_Tune_Fine, TH3_Type& hFine_Check_TRaw_Phas, TH3_Type& hFine_Check_TRaw_Fine ) {
+    //! Loop on data
+    gROOT->SetBatch();
+    framed_data_t framed_data;
+    while ( populate_framed_data( framed_data, Form(intput_rawdata_decoded_file_dir,kRunTag.Data()), timing_filenames, frame_size ) ) {
+        for ( auto &spill_data : framed_data ) {
+            auto spill      = spill_data.first;
+            auto &frames    = spill_data.second;
+            for (auto &frame_data : frames) {
+                kIgnoreFix = false;
+                auto frame      = frame_data.first;
+                auto &chips     = frame_data.second;
+                double average_time[6] = {0.};
+                for (auto &chip_data : chips) {
+                    auto kNormalisation = 0;
+                    auto chip       = chip_data.first;
+                    if ( chip < 4 ) continue;
+                    auto &channels  = chip_data.second;
+                    for (auto &channel_data : channels) {
+                        auto channel    = channel_data.first;
+                        auto &hits      = channel_data.second;
+                        //! Taking first hit w/ assumption of coincidence
+                        auto &hit       = hits[0];
+                        double phase = calculate_calibrated_phase( hit.fine, kRunTag, get_global_index( hit.fifo, hit.pixel, hit.column, hit.tdc ) );
+                        if ( phase <= -9.9 ) continue;
+                        double time = hit.coarse * coarse_to_ns + hit.rollover * rollover_to_ns - phase * coarse_to_ns; // [ns]
+                        average_time[chip] += time;
+                        kNormalisation++;
+                    }
+                    if (channels.size() > 0)    average_time[chip] /= kNormalisation;
+                }
+                if ( chips[4].size() != 32 || chips[5].size() != 32 ) continue;
+                auto delta = average_time[4] - average_time[5];
+                if ( fabs(delta) > 5. ) continue;
+                auto reference = 0.5 * ( average_time[4] + average_time[5] ); // [ns]
+                //! Second loop
+                kIgnoreFix = true;
+                for (auto &chip_data : chips) {
+                    auto kNormalisation = 0;
+                    auto chip       = chip_data.first;
+                    auto &channels  = chip_data.second;
+                    for (auto &channel_data : channels) {
+                        auto channel    = channel_data.first;
+                        auto &hits      = channel_data.second;
+                        //! Taking first hit w/ assumption of coincidence
+                        auto &hit       = hits[0];
+                        auto global_index = get_global_index( hit.fifo, hit.pixel, hit.column, hit.tdc );
+                        double phase = calculate_calibrated_phase( hit.fine, kRunTag, global_index );
+                        double calib_time = hit.coarse * coarse_to_ns + hit.rollover * rollover_to_ns - phase * coarse_to_ns; // [ns]
+                        double uncal_time = hit.coarse * coarse_to_ns + hit.rollover * rollover_to_ns; // [ns]
+                        hFine_Check_Tune_Phas->Fill( global_index, calib_time-reference, phase );
+                        hFine_Check_Tune_Fine->Fill( global_index, calib_time-reference, hit.fine );
+                        hFine_Check_TRaw_Phas->Fill( global_index, uncal_time-reference, phase );
+                        hFine_Check_TRaw_Fine->Fill( global_index, uncal_time-reference, hit.fine );
+                    }
+                }
+            }
+        }
+    }
+    system(Form("mkdir -p %s/%s/TDC_FineTune_Check/",output_preprocess_fine_analysis_directory.Data(),kRunTag.Data()));
+    for ( Int_t iIndex = 512; iIndex < kGlobalIndexRange; iIndex++ ) {
+        TCanvas* cPlotFit = new TCanvas();
+        cPlotFit->Divide(2,2);
+        cPlotFit->cd(1);
+        gStyle->SetOptStat(0);
+        hFine_Check_Tune_Fine->GetXaxis()->SetRange(iIndex+1,iIndex+1);
+        auto hTune_Fine = hFine_Check_Tune_Fine->Project3DProfile("yz");
+        hTune_Fine->SetTitle("t_{i}-t_{ref} both tuned vs fine par.");
+        hTune_Fine->GetYaxis()->SetTitle("t_{i}-t_{ref} (ns)");
+        hTune_Fine->GetXaxis()->SetTitle("fine par. a.u.");
+        hTune_Fine->Draw("COLZ");
+        cPlotFit->cd(2);
+        gStyle->SetOptStat(0);
+        hFine_Check_Tune_Phas->GetXaxis()->SetRange(iIndex+1,iIndex+1);
+        auto hTune_Phas = hFine_Check_Tune_Phas->Project3DProfile("yz");
+        hTune_Phas->SetTitle("t_{i}-t_{ref} both tuned vs calib. phase");
+        hTune_Phas->GetYaxis()->SetTitle("t_{i}-t_{ref} (ns)");
+        hTune_Phas->GetXaxis()->SetTitle("phase a.u.");
+        hTune_Phas->Draw("COLZ");
+        cPlotFit->cd(3);
+        gStyle->SetOptStat(0);
+        hFine_Check_TRaw_Fine->GetXaxis()->SetRange(iIndex+1,iIndex+1);
+        auto hTRaw_Fine = hFine_Check_TRaw_Fine->Project3DProfile("yz");
+        hTRaw_Fine->SetTitle("t_{i}-t_{ref} only ref tuned  vs fine par.");
+        hTRaw_Fine->GetYaxis()->SetTitle("t_{i}-t_{ref} (ns)");
+        hTRaw_Fine->GetXaxis()->SetTitle("fine par. a.u.");
+        hTRaw_Fine->Draw("COLZ");
+        cPlotFit->cd(4);
+        gStyle->SetOptStat(0);
+        hFine_Check_TRaw_Phas->GetXaxis()->SetRange(iIndex+1,iIndex+1);
+        auto hTRaw_Phas = hFine_Check_TRaw_Phas->Project3DProfile("yz");
+        hTRaw_Phas->SetTitle("t_{i}-t_{ref} only ref tuned vs calib. phase");
+        hTRaw_Phas->GetYaxis()->SetTitle("t_{i}-t_{ref} (ns)");
+        hTRaw_Phas->GetXaxis()->SetTitle("phase a.u.");
+        hTRaw_Phas->Draw("COLZ");
+        //!
+        cPlotFit->SaveAs(Form("%s/%s/TDC_FineTune_Check/TDC%i.pdf",output_preprocess_fine_analysis_directory.Data(),kRunTag.Data(),iIndex));
+        delete cPlotFit;
+    }
+    hFine_Check_Tune_Fine->GetXaxis()->SetRange(-1,-1);
+    hFine_Check_Tune_Phas->GetXaxis()->SetRange(-1,-1);
+    hFine_Check_TRaw_Fine->GetXaxis()->SetRange(-1,-1);
+    hFine_Check_TRaw_Phas->GetXaxis()->SetRange(-1,-1);
+    gROOT->SetBatch(false);
 }
 //!
 #endif
